@@ -52,6 +52,11 @@ ShellRoot {
 
                 anchors.fill: parent
 
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: bluetoothStatus.closeMenu()
+                }
+
                 Rectangle {
                     id: rofi
 
@@ -67,7 +72,10 @@ ShellRoot {
                     }
 
                     TapHandler {
-                        onTapped: launcher.startDetached()
+                        onTapped: {
+                            bluetoothStatus.closeMenu();
+                            launcher.startDetached();
+                        }
                     }
 
                     InnerBackground {
@@ -119,7 +127,10 @@ ShellRoot {
                             }
 
                             TapHandler {
-                                onTapped: modelData.activate()
+                                onTapped: {
+                                    bluetoothStatus.closeMenu();
+                                    modelData.activate();
+                                }
                             }
 
                             InnerBackground {
@@ -230,6 +241,26 @@ ShellRoot {
                             color: font.bold ? root.red : root.foreground
                         }
                     }
+                }
+
+                BluetoothStatus {
+                    id: bluetoothStatus
+
+                    anchors {
+                        right: time.left
+                        rightMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+
+                    barHeight: bar.implicitHeight
+                    barWindow: bar
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    foreground: root.foreground
+                    muted: root.muted
+                    accent: root.accent
+                    red: root.red
                 }
             }
         }
