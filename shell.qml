@@ -54,7 +54,10 @@ ShellRoot {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: bluetoothStatus.closeMenu()
+                    onClicked: {
+                        bluetoothStatus.closeMenu();
+                        networkStatus.closeMenu();
+                    }
                 }
 
                 Rectangle {
@@ -74,6 +77,7 @@ ShellRoot {
                     TapHandler {
                         onTapped: {
                             bluetoothStatus.closeMenu();
+                            networkStatus.closeMenu();
                             launcher.startDetached();
                         }
                     }
@@ -129,6 +133,7 @@ ShellRoot {
                             TapHandler {
                                 onTapped: {
                                     bluetoothStatus.closeMenu();
+                                    networkStatus.closeMenu();
                                     modelData.activate();
                                 }
                             }
@@ -247,6 +252,28 @@ ShellRoot {
                     id: bluetoothStatus
 
                     anchors {
+                        right: networkStatus.left
+                        rightMargin: 2
+                        verticalCenter: parent.verticalCenter
+                    }
+
+                    barHeight: bar.implicitHeight
+                    barWindow: bar
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    foreground: root.foreground
+                    muted: root.muted
+                    accent: root.accent
+                    red: root.red
+
+                    onMenuOpened: networkStatus.closeMenu()
+                }
+
+                NetworkStatus {
+                    id: networkStatus
+
+                    anchors {
                         right: time.left
                         rightMargin: 10
                         verticalCenter: parent.verticalCenter
@@ -261,6 +288,8 @@ ShellRoot {
                     muted: root.muted
                     accent: root.accent
                     red: root.red
+
+                    onMenuOpened: bluetoothStatus.closeMenu()
                 }
             }
         }

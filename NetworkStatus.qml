@@ -1,6 +1,6 @@
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Hyprland
+import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 
@@ -17,46 +17,113 @@ Rectangle {
     required property color accent
     required property color red
 
-    readonly property var adapter: Bluetooth.defaultAdapter
-    readonly property int connectedCount: Bluetooth.devices.values.length
-    readonly property bool highlighted: indicatorHover.hovered || bluetoothMenu.visible || escapeHighlight
+    readonly property var wifiDevice: {
+        for (const device of Networking.devices.values) {
+            if (device.type === DeviceType.Wifi) {
+                return device;
+            }
+        }
+
+        return null;
+    }
+    readonly property var connectedDevice: {
+        for (const device of Networking.devices.values) {
+            if (device.connected && device.type !== DeviceType.None) {
+                return device;
+            }
+        }
+
+        return null;
+    }
+    readonly property var activeNetwork: {
+        for (const device of Networking.devices.values) {
+            if (device.type === DeviceType.None) {
+                continue;
+            }
+
+            for (const network of device.networks.values) {
+                if (network.connected) {
+                    return network;
+                }
+            }
+        }
+
+        return null;
+    }
+    readonly property bool connected: connectedDevice !== null
+    readonly property bool connectionLimited: Networking.connectivity === NetworkConnectivity.Limited
+        || Networking.connectivity === NetworkConnectivity.Portal
+    readonly property bool highlighted: indicatorHover.hovered || networkMenu.visible || escapeHighlight
     property bool escapeHighlight: false
-    property var contextDevice: null
+    property var contextNetwork: null
     property var contextAnchor: null
     property bool confirmForget: false
+    property bool showConnectionDetails: false
 
     signal menuOpened
 
-    implicitWidth: Math.max(32, indicatorRow.implicitWidth + 16)
+    implicitWidth: Math.max(32, networkIcon.implicitWidth + 16)
     implicitHeight: barHeight
     color: background
 
     function closeMenu() {
-        root.closeDeviceContextMenu();
-        bluetoothMenu.visible = false;
+        root.closeNetworkContextMenu();
+        if (root.wifiDevice) {
+            root.wifiDevice.scannerEnabled = false;
+        }
+        networkMenu.visible = false;
         menuFocusGrab.active = false;
     }
 
-    function closeDeviceContextMenu() {
-        deviceContextMenu.visible = false;
+    function closeNetworkContextMenu() {
+        networkContextMenu.visible = false;
         root.confirmForget = false;
-        root.contextDevice = null;
+        root.showConnectionDetails = false;
+        root.contextNetwork = null;
         root.contextAnchor = null;
     }
 
-    function openDeviceContextMenu(device, row) {
-        root.contextDevice = device;
+    function openNetworkContextMenu(network, row) {
+        root.contextNetwork = network;
         root.contextAnchor = row;
         root.confirmForget = false;
-        deviceContextMenu.visible = true;
+        root.showConnectionDetails = false;
+        networkContextMenu.visible = true;
+    }
+
+    function connectionDetails() {
+        if (!root.contextNetwork) {
+            return "";
+        }
+
+        const network = root.contextNetwork;
+        const type = network.device.type === DeviceType.Wifi ? "Wi-Fi" : "Ethernet";
+        const state = ConnectionState.toString(network.state);
+        const profiles = [...network.nmSettings].map(profile => profile.id).join(", ");
+        const lines = [
+            `Interface: ${network.device.name}`,
+            `Type: ${type}`,
+            `State: ${state}`,
+            `Profiles: ${profiles || "None"}`
+        ];
+
+        if (network.device.type === DeviceType.Wifi) {
+            lines.splice(2, 0, `Signal: ${Math.round((network.signalStrength || 0) * 100)}%`);
+            lines.splice(3, 0, `Security: ${WifiSecurityType.toString(network.security)}`);
+        }
+
+        return lines.join("\n");
     }
 
     function openMenu() {
         root.menuOpened();
-        bluetoothMenu.anchor.updateAnchor();
-        bluetoothMenu.visible = true;
+        networkMenu.anchor.updateAnchor();
+        networkMenu.visible = true;
+        if (root.wifiDevice && Networking.wifiEnabled) {
+            root.wifiDevice.scannerEnabled = true;
+        }
         Qt.callLater(() => {
-            if (bluetoothMenu.visible) {
+            if (networkMenu.visible) {
                 menuFocusGrab.active = true;
             }
         });
@@ -70,22 +137,33 @@ Rectangle {
     }
 
     ScriptModel {
-        id: pairedDevices
+        id: savedNetworks
 
         values: {
-            if (!root.adapter) {
-                return [];
+            const networks = [];
+
+            for (const device of Networking.devices.values) {
+                if (device.type === DeviceType.None) {
+                    continue;
+                }
+
+                for (const network of device.networks.values) {
+                    if (network.connected || network.known) {
+                        networks.push(network);
+                    }
+                }
             }
 
-            return [...root.adapter.devices.values]
-                .filter(device => device.paired)
-                .sort((left, right) => {
-                    if (left.connected !== right.connected) {
-                        return left.connected ? -1 : 1;
-                    }
+            return networks.sort((left, right) => {
+                if (left.connected !== right.connected) {
+                    return left.connected ? -1 : 1;
+                }
+                if (left.device.type !== right.device.type) {
+                    return left.device.type === DeviceType.Wired ? -1 : 1;
+                }
 
-                    return left.name.localeCompare(right.name);
-                });
+                return left.name.localeCompare(right.name);
+            });
         }
     }
 
@@ -95,7 +173,7 @@ Rectangle {
 
     TapHandler {
         onTapped: {
-            if (bluetoothMenu.visible) {
+            if (networkMenu.visible) {
                 root.closeMenu();
             } else {
                 root.openMenu();
@@ -109,43 +187,27 @@ Rectangle {
         anchors.rightMargin: 3
     }
 
-    Row {
-        id: indicatorRow
+    Text {
+        id: networkIcon
 
         anchors.centerIn: parent
-        spacing: 4
-
-        Text {
-            text: ""
-            color: {
-                if (root.highlighted) {
-                    return root.backgroundAlt;
-                } else if (!root.adapter || !root.adapter.enabled) {
-                    return root.muted;
-                } else if (root.connectedCount > 0) {
-                    return root.accent;
-                } else {
-                    return root.foreground;
-                }
-            }
-            font: root.defaultFont
-        }
-
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: root.connectedCount > 0
-            text: root.connectedCount
-            color: root.highlighted ? root.backgroundAlt : root.accent
-            font {
-                family: root.defaultFont.family
-                pixelSize: root.defaultFont.pixelSize - 3
-                bold: true
+        text: root.connectedDevice && root.connectedDevice.type === DeviceType.Wifi ? "" : "󰈀"
+        color: {
+            if (root.highlighted) {
+                return root.backgroundAlt;
+            } else if (root.connectionLimited) {
+                return root.red;
+            } else if (root.connected) {
+                return root.accent;
+            } else {
+                return root.muted;
             }
         }
+        font: root.defaultFont
     }
 
     PopupWindow {
-        id: bluetoothMenu
+        id: networkMenu
 
         anchor {
             item: root
@@ -154,12 +216,12 @@ Rectangle {
             margins.top: 6
         }
 
-        implicitWidth: 340
+        implicitWidth: 360
         implicitHeight: menuColumn.implicitHeight + 24
         color: "transparent"
 
         Shortcut {
-            enabled: bluetoothMenu.visible && !deviceContextMenu.visible
+            enabled: networkMenu.visible && !networkContextMenu.visible
             sequence: "Escape"
             context: Qt.ApplicationShortcut
             onActivated: {
@@ -186,15 +248,15 @@ Rectangle {
                 spacing: 8
 
                 Rectangle {
-                    id: adapterRow
+                    id: wifiRow
 
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 42
+                    Layout.preferredHeight: 46
                     radius: 6
-                    color: adapterRowHover.hovered ? root.backgroundAlt : "transparent"
+                    color: wifiRowHover.hovered ? root.backgroundAlt : "transparent"
 
                     HoverHandler {
-                        id: adapterRowHover
+                        id: wifiRowHover
                     }
 
                     RowLayout {
@@ -209,7 +271,7 @@ Rectangle {
                             spacing: 2
 
                             Text {
-                                text: "Bluetooth"
+                                text: "Network"
                                 color: root.foreground
                                 font {
                                     family: root.defaultFont.family
@@ -219,22 +281,18 @@ Rectangle {
                             }
 
                             Text {
+                                width: parent.width
                                 text: {
-                                    if (!root.adapter) {
-                                        return "No adapter";
-                                    } else if (root.adapter.state === BluetoothAdapterState.Blocked) {
-                                        return "Blocked";
-                                    } else if (!root.adapter.enabled) {
-                                        return "Off";
-                                    } else if (root.connectedCount === 0) {
-                                        return "Not connected";
-                                    } else if (root.connectedCount === 1) {
-                                        return "1 device connected";
+                                    if (root.activeNetwork) {
+                                        return root.activeNetwork.name;
+                                    } else if (root.connectedDevice) {
+                                        return root.connectedDevice.name;
                                     } else {
-                                        return `${root.connectedCount} devices connected`;
+                                        return "Not connected";
                                     }
                                 }
-                                color: root.muted
+                                color: root.connected ? root.accent : root.muted
+                                elide: Text.ElideRight
                                 font {
                                     family: root.defaultFont.family
                                     pixelSize: root.defaultFont.pixelSize - 4
@@ -242,25 +300,39 @@ Rectangle {
                             }
                         }
 
-                        Rectangle {
-                            implicitWidth: 42
-                            implicitHeight: 22
-                            radius: height / 2
-                            color: root.adapter && root.adapter.enabled ? root.accent : root.backgroundAlt
-                            opacity: root.adapter && root.adapter.state !== BluetoothAdapterState.Blocked ? 1 : 0.5
+                        Column {
+                            spacing: 2
 
-                            Rectangle {
-                                width: 16
-                                height: 16
-                                radius: width / 2
-                                anchors.verticalCenter: parent.verticalCenter
-                                x: root.adapter && root.adapter.enabled ? parent.width - width - 3 : 3
-                                color: root.adapter && root.adapter.enabled ? root.backgroundAlt : root.muted
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Wi-Fi"
+                                color: root.muted
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 5
+                                }
                             }
 
-                            TapHandler {
-                                enabled: root.adapter && root.adapter.state !== BluetoothAdapterState.Blocked
-                                onTapped: root.adapter.enabled = !root.adapter.enabled
+                            Rectangle {
+                                implicitWidth: 42
+                                implicitHeight: 22
+                                radius: height / 2
+                                color: Networking.wifiEnabled ? root.accent : root.backgroundAlt
+                                opacity: Networking.wifiHardwareEnabled ? 1 : 0.5
+
+                                Rectangle {
+                                    width: 16
+                                    height: 16
+                                    radius: width / 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: Networking.wifiEnabled ? parent.width - width - 3 : 3
+                                    color: Networking.wifiEnabled ? root.backgroundAlt : root.muted
+                                }
+
+                                TapHandler {
+                                    enabled: Networking.wifiHardwareEnabled
+                                    onTapped: Networking.wifiEnabled = !Networking.wifiEnabled
+                                }
                             }
                         }
                     }
@@ -274,41 +346,37 @@ Rectangle {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: {
-                        if (!root.adapter || !root.adapter.enabled || pairedDevices.values.length === 0) {
-                            return 52;
-                        }
-
-                        return Math.min(pairedDevices.values.length * 52, 260);
-                    }
+                    Layout.preferredHeight: savedNetworks.values.length === 0
+                        ? 52
+                        : Math.min(savedNetworks.values.length * 52, 260)
 
                     ListView {
                         anchors.fill: parent
                         clip: true
                         spacing: 2
-                        model: pairedDevices
-                        visible: root.adapter && root.adapter.enabled && pairedDevices.values.length > 0
+                        model: savedNetworks
+                        visible: savedNetworks.values.length > 0
 
                         delegate: Rectangle {
-                            id: deviceRow
+                            id: networkRow
 
                             required property var modelData
 
                             width: ListView.view.width
                             height: 50
                             radius: 6
-                            color: deviceRowHover.hovered
-                                || (deviceContextMenu.visible && root.contextDevice === deviceRow.modelData)
+                            color: networkRowHover.hovered
+                                || (networkContextMenu.visible && root.contextNetwork === networkRow.modelData)
                                 ? root.backgroundAlt
                                 : "transparent"
 
                             HoverHandler {
-                                id: deviceRowHover
+                                id: networkRowHover
                             }
 
                             TapHandler {
                                 acceptedButtons: Qt.RightButton
-                                onTapped: root.openDeviceContextMenu(deviceRow.modelData, deviceRow)
+                                onTapped: root.openNetworkContextMenu(networkRow.modelData, networkRow)
                             }
 
                             RowLayout {
@@ -321,8 +389,8 @@ Rectangle {
 
                                 Text {
                                     Layout.preferredWidth: 24
-                                    text: ""
-                                    color: deviceRow.modelData.connected ? root.accent : root.muted
+                                    text: networkRow.modelData.device.type === DeviceType.Wifi ? "" : "󰈀"
+                                    color: networkRow.modelData.connected ? root.accent : root.muted
                                     horizontalAlignment: Text.AlignHCenter
                                     font: root.defaultFont
                                 }
@@ -333,30 +401,32 @@ Rectangle {
 
                                     Text {
                                         width: parent.width
-                                        text: deviceRow.modelData.name
+                                        text: networkRow.modelData.name
                                         color: root.foreground
                                         elide: Text.ElideRight
                                         font {
                                             family: root.defaultFont.family
                                             pixelSize: root.defaultFont.pixelSize - 2
-                                            bold: deviceRow.modelData.connected
+                                            bold: networkRow.modelData.connected
                                         }
                                     }
 
                                     Text {
                                         text: {
-                                            switch (deviceRow.modelData.state) {
-                                            case BluetoothDeviceState.Connecting:
+                                            switch (networkRow.modelData.state) {
+                                            case ConnectionState.Connecting:
                                                 return "Connecting…";
-                                            case BluetoothDeviceState.Disconnecting:
+                                            case ConnectionState.Disconnecting:
                                                 return "Disconnecting…";
-                                            case BluetoothDeviceState.Connected:
-                                                return "Connected";
+                                            case ConnectionState.Connected:
+                                                return networkRow.modelData.device.type === DeviceType.Wifi
+                                                    ? "Connected via Wi-Fi"
+                                                    : "Connected via Ethernet";
                                             default:
                                                 return "Not connected";
                                             }
                                         }
-                                        color: deviceRow.modelData.connected ? root.accent : root.muted
+                                        color: networkRow.modelData.connected ? root.accent : root.muted
                                         font {
                                             family: root.defaultFont.family
                                             pixelSize: root.defaultFont.pixelSize - 4
@@ -365,8 +435,8 @@ Rectangle {
                                 }
 
                                 Text {
-                                    visible: deviceRow.modelData.batteryAvailable
-                                    text: `${Math.round(deviceRow.modelData.battery * 100)}%`
+                                    visible: networkRow.modelData.device.type === DeviceType.Wifi
+                                    text: `${Math.round((networkRow.modelData.signalStrength || 0) * 100)}%`
                                     color: root.muted
                                     font {
                                         family: root.defaultFont.family
@@ -375,33 +445,30 @@ Rectangle {
                                 }
 
                                 Rectangle {
-                                    id: deviceToggle
-
-                                    readonly property bool busy: deviceRow.modelData.state === BluetoothDeviceState.Connecting
-                                        || deviceRow.modelData.state === BluetoothDeviceState.Disconnecting
+                                    id: connectionToggle
 
                                     Layout.preferredWidth: 42
                                     Layout.preferredHeight: 22
                                     radius: height / 2
-                                    color: deviceRow.modelData.connected ? root.accent : root.backgroundAlt
-                                    opacity: busy ? 0.5 : 1
+                                    color: networkRow.modelData.connected ? root.accent : root.backgroundAlt
+                                    opacity: networkRow.modelData.stateChanging ? 0.5 : 1
 
                                     Rectangle {
                                         width: 16
                                         height: 16
                                         radius: width / 2
                                         anchors.verticalCenter: parent.verticalCenter
-                                        x: deviceRow.modelData.connected ? parent.width - width - 3 : 3
-                                        color: deviceRow.modelData.connected ? root.backgroundAlt : root.muted
+                                        x: networkRow.modelData.connected ? parent.width - width - 3 : 3
+                                        color: networkRow.modelData.connected ? root.backgroundAlt : root.muted
                                     }
 
                                     TapHandler {
-                                        enabled: !deviceToggle.busy
+                                        enabled: !networkRow.modelData.stateChanging
                                         onTapped: {
-                                            if (deviceRow.modelData.connected) {
-                                                deviceRow.modelData.disconnect();
+                                            if (networkRow.modelData.connected) {
+                                                networkRow.modelData.disconnect();
                                             } else {
-                                                deviceRow.modelData.connect();
+                                                networkRow.modelData.connect();
                                             }
                                         }
                                     }
@@ -412,16 +479,8 @@ Rectangle {
 
                     Text {
                         anchors.centerIn: parent
-                        visible: !root.adapter || !root.adapter.enabled || pairedDevices.values.length === 0
-                        text: {
-                            if (!root.adapter) {
-                                return "No Bluetooth adapter found";
-                            } else if (!root.adapter.enabled) {
-                                return "Bluetooth is turned off";
-                            } else {
-                                return "No paired devices";
-                            }
-                        }
+                        visible: savedNetworks.values.length === 0
+                        text: "No saved network connections"
                         color: root.muted
                         font {
                             family: root.defaultFont.family
@@ -440,15 +499,20 @@ Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: 38
                     radius: 6
-                    color: managerHover.hovered ? root.backgroundAlt : "transparent"
+                    color: settingsHover.hovered ? root.backgroundAlt : "transparent"
 
                     HoverHandler {
-                        id: managerHover
+                        id: settingsHover
                     }
 
                     TapHandler {
                         onTapped: {
-                            Quickshell.execDetached(["blueman-manager"]);
+                            Quickshell.execDetached([
+                                "env",
+                                "XDG_CURRENT_DESKTOP=GNOME",
+                                "gnome-control-center",
+                                "network"
+                            ]);
                             root.closeMenu();
                         }
                     }
@@ -459,7 +523,7 @@ Rectangle {
                             left: parent.left
                             leftMargin: 8
                         }
-                        text: "Open Bluetooth Manager…"
+                        text: "Open Network Settings…"
                         color: root.foreground
                         font {
                             family: root.defaultFont.family
@@ -483,19 +547,19 @@ Rectangle {
     }
 
     MouseArea {
-        parent: bluetoothMenu.contentItem
+        parent: networkMenu.contentItem
         anchors.fill: parent
         z: 99
-        visible: deviceContextMenu.visible
-        onClicked: root.closeDeviceContextMenu()
+        visible: networkContextMenu.visible
+        onClicked: root.closeNetworkContextMenu()
     }
 
     Rectangle {
-        id: deviceContextMenu
+        id: networkContextMenu
 
-        parent: bluetoothMenu.contentItem
-        implicitWidth: 240
-        implicitHeight: deviceContextColumn.implicitHeight + 16
+        parent: networkMenu.contentItem
+        implicitWidth: 280
+        implicitHeight: networkContextColumn.implicitHeight + 16
         width: implicitWidth
         height: implicitHeight
         x: parent ? parent.width - width - 8 : 0
@@ -514,16 +578,17 @@ Rectangle {
         onVisibleChanged: {
             if (!visible) {
                 root.confirmForget = false;
-                root.contextDevice = null;
+                root.showConnectionDetails = false;
+                root.contextNetwork = null;
                 root.contextAnchor = null;
             }
         }
 
         Shortcut {
-            enabled: deviceContextMenu.visible
+            enabled: networkContextMenu.visible
             sequence: "Escape"
             context: Qt.ApplicationShortcut
-            onActivated: root.closeDeviceContextMenu()
+            onActivated: root.closeNetworkContextMenu()
         }
 
         Rectangle {
@@ -534,7 +599,7 @@ Rectangle {
             border.color: root.backgroundAlt
 
             ColumnLayout {
-                id: deviceContextColumn
+                id: networkContextColumn
 
                 anchors {
                     fill: parent
@@ -547,7 +612,7 @@ Rectangle {
                     Layout.leftMargin: 9
                     Layout.rightMargin: 9
                     Layout.preferredHeight: 30
-                    text: root.contextDevice ? root.contextDevice.name : "Bluetooth device"
+                    text: root.contextNetwork ? root.contextNetwork.name : "Network connection"
                     color: root.muted
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
@@ -566,41 +631,42 @@ Rectangle {
 
                 ContextMenuItem {
                     Layout.fillWidth: true
-                    label: root.contextDevice && root.contextDevice.trusted ? "Untrust" : "Trust"
-                    detail: root.contextDevice && root.contextDevice.trusted ? "On" : "Off"
+                    label: root.showConnectionDetails ? "Hide connection details" : "Connection details"
                     defaultFont: root.defaultFont
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
                     red: root.red
-                    onSelected: {
-                        if (root.contextDevice) {
-                            root.contextDevice.trusted = !root.contextDevice.trusted;
+                    onSelected: root.showConnectionDetails = !root.showConnectionDetails
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.showConnectionDetails ? detailsText.implicitHeight + 16 : 0
+                    visible: root.showConnectionDetails
+                    radius: 5
+                    color: root.backgroundAlt
+
+                    Text {
+                        id: detailsText
+
+                        anchors {
+                            fill: parent
+                            margins: 8
                         }
-                        root.closeDeviceContextMenu();
+                        text: root.connectionDetails()
+                        color: root.muted
+                        wrapMode: Text.Wrap
+                        font {
+                            family: root.defaultFont.family
+                            pixelSize: root.defaultFont.pixelSize - 4
+                        }
                     }
                 }
 
                 ContextMenuItem {
                     Layout.fillWidth: true
-                    label: root.contextDevice && root.contextDevice.blocked ? "Unblock" : "Block"
-                    detail: root.contextDevice && root.contextDevice.blocked ? "On" : "Off"
-                    defaultFont: root.defaultFont
-                    backgroundAlt: root.backgroundAlt
-                    foreground: root.foreground
-                    muted: root.muted
-                    red: root.red
-                    onSelected: {
-                        if (root.contextDevice) {
-                            root.contextDevice.blocked = !root.contextDevice.blocked;
-                        }
-                        root.closeDeviceContextMenu();
-                    }
-                }
-
-                ContextMenuItem {
-                    Layout.fillWidth: true
-                    label: root.confirmForget ? "Confirm forget" : "Forget device…"
+                    label: root.confirmForget ? "Confirm forget" : "Forget connection…"
                     dangerous: true
                     defaultFont: root.defaultFont
                     backgroundAlt: root.backgroundAlt
@@ -610,10 +676,10 @@ Rectangle {
                     onSelected: {
                         if (!root.confirmForget) {
                             root.confirmForget = true;
-                        } else if (root.contextDevice) {
-                            const device = root.contextDevice;
-                            root.closeDeviceContextMenu();
-                            device.forget();
+                        } else if (root.contextNetwork) {
+                            const network = root.contextNetwork;
+                            root.closeNetworkContextMenu();
+                            network.forget();
                         }
                     }
                 }
@@ -626,14 +692,19 @@ Rectangle {
 
                 ContextMenuItem {
                     Layout.fillWidth: true
-                    label: "Open Bluetooth Manager"
+                    label: "Open Network Settings"
                     defaultFont: root.defaultFont
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
                     red: root.red
                     onSelected: {
-                        Quickshell.execDetached(["blueman-manager"]);
+                        Quickshell.execDetached([
+                            "env",
+                            "XDG_CURRENT_DESKTOP=GNOME",
+                            "gnome-control-center",
+                            "network"
+                        ]);
                         root.closeMenu();
                     }
                 }
@@ -644,12 +715,11 @@ Rectangle {
     HyprlandFocusGrab {
         id: menuFocusGrab
 
-        windows: [bluetoothMenu, root.barWindow]
+        windows: [networkMenu, root.barWindow]
         onCleared: {
-            if (bluetoothMenu.visible) {
+            if (networkMenu.visible) {
                 root.closeMenu();
             }
         }
     }
-
 }
