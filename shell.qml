@@ -55,6 +55,7 @@ ShellRoot {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
+                        audioStatus.closeMenu();
                         bluetoothStatus.closeMenu();
                         networkStatus.closeMenu();
                     }
@@ -76,6 +77,7 @@ ShellRoot {
 
                     TapHandler {
                         onTapped: {
+                            audioStatus.closeMenu();
                             bluetoothStatus.closeMenu();
                             networkStatus.closeMenu();
                             launcher.startDetached();
@@ -132,6 +134,7 @@ ShellRoot {
 
                             TapHandler {
                                 onTapped: {
+                                    audioStatus.closeMenu();
                                     bluetoothStatus.closeMenu();
                                     networkStatus.closeMenu();
                                     modelData.activate();
@@ -248,6 +251,31 @@ ShellRoot {
                     }
                 }
 
+                AudioStatus {
+                    id: audioStatus
+
+                    anchors {
+                        right: bluetoothStatus.left
+                        rightMargin: 2
+                        verticalCenter: parent.verticalCenter
+                    }
+
+                    barHeight: bar.implicitHeight
+                    barWindow: bar
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    foreground: root.foreground
+                    muted: root.muted
+                    accent: root.accent
+                    red: root.red
+
+                    onMenuOpened: {
+                        bluetoothStatus.closeMenu();
+                        networkStatus.closeMenu();
+                    }
+                }
+
                 BluetoothStatus {
                     id: bluetoothStatus
 
@@ -267,7 +295,10 @@ ShellRoot {
                     accent: root.accent
                     red: root.red
 
-                    onMenuOpened: networkStatus.closeMenu()
+                    onMenuOpened: {
+                        audioStatus.closeMenu();
+                        networkStatus.closeMenu();
+                    }
                 }
 
                 NetworkStatus {
@@ -289,7 +320,10 @@ ShellRoot {
                     accent: root.accent
                     red: root.red
 
-                    onMenuOpened: bluetoothStatus.closeMenu()
+                    onMenuOpened: {
+                        audioStatus.closeMenu();
+                        bluetoothStatus.closeMenu();
+                    }
                 }
             }
         }
