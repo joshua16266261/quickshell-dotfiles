@@ -12,9 +12,15 @@ ShellRoot {
     readonly property color foreground: "#e6e9ef"
     readonly property color muted: "#8b93a7"
     readonly property color accent: "#62d6e8"
+    readonly property color red: "#ff7a90"
+
+    readonly property font defaultFont: Qt.font({
+        family: "JetBrainsMono NerdFont",
+        pixelSize: 16
+    })
 
     SystemClock {
-        id: clock
+        id: systemClock
         precision: SystemClock.Seconds
     }
 
@@ -41,38 +47,59 @@ ShellRoot {
                 right: true
             }
 
-            RowLayout {
+            Item {
+                id: barContent
+
                 anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 12
-                spacing: 12
 
                 Rectangle {
-                    implicitWidth: launcherLabel.implicitWidth + 22
-                    implicitHeight: 26
-                    radius: 6
-                    color: launcherMouse.containsMouse ? root.accent : root.backgroundAlt
+                    id: rofi
 
-                    Text {
-                        id: launcherLabel
-                        anchors.centerIn: parent
-                        text: "LAUNCH"
-                        color: launcherMouse.containsMouse ? root.backgroundAlt : root.accent
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.bold: true
-                        font.pixelSize: 12
+                    anchors.left: parent.left
+
+                    implicitWidth: rofiLabel.implicitWidth + 1.25 * rofiLabel.font.pixelSize
+                    implicitHeight: bar.implicitHeight
+
+                    color: root.background
+
+                    HoverHandler {
+                        id: rofiHover
                     }
 
-                    MouseArea {
-                        id: launcherMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: launcher.startDetached()
+                    TapHandler {
+                        onTapped: launcher.startDetached()
+                    }
+
+                    InnerBackground {
+                        color: rofiHover.hovered ? root.accent : root.backgroundAlt
+                        anchors.leftMargin: 5
+                        anchors.rightMargin: 5
+                    }
+
+                    Text {
+                        id: rofiLabel
+
+                        anchors {
+                            centerIn: parent
+                            verticalCenter: parent.verticalCenter
+                        }
+
+                        text: "Rofi"
+
+                        color: rofiHover.hovered ? root.backgroundAlt : root.accent
+
+                        font {
+                            family: defaultFont.family
+                            pixelSize: defaultFont.pixelSize
+                            bold: true
+                        }
                     }
                 }
 
                 Row {
+                    id: workspaces
+
+                    anchors.centerIn: parent
                     spacing: 5
 
                     Repeater {
@@ -81,74 +108,127 @@ ShellRoot {
                         Rectangle {
                             required property var modelData
 
-                            implicitWidth: Math.max(24, workspaceLabel.implicitWidth + 12)
-                            implicitHeight: 24
+                            implicitWidth: Math.max(24, workspaceLabel.implicitWidth + 1.25 * workspaceLabel.font.pixelSize)
+                            implicitHeight: bar.implicitHeight
                             radius: 6
-                            color: modelData.focused ? root.accent : (workspaceMouse.containsMouse ? root.backgroundAlt : "transparent")
+
+                            color: root.background
+
+                            HoverHandler {
+                                id: workspaceHover
+                            }
+
+                            TapHandler {
+                                onTapped: modelData.activate()
+                            }
+
+                            InnerBackground {
+                                color: {
+                                    if (modelData.focused) {
+                                        return root.accent
+                                    } else if (workspaceHover.hovered) {
+                                        return root.muted
+                                    } else {
+                                        return root.background
+                                    }
+                                }
+                            }
 
                             Text {
                                 id: workspaceLabel
-                                anchors.centerIn: parent
-                                text: modelData.name
-                                color: modelData.focused ? root.backgroundAlt : (modelData.urgent ? "#ff7a90" : root.foreground)
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.bold: modelData.focused
-                                font.pixelSize: 12
-                            }
 
-                            MouseArea {
-                                id: workspaceMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: modelData.activate()
+                                anchors.centerIn: parent
+
+                                text: modelData.name
+                                color: {
+                                    if (modelData.urgent) {
+                                        return root.red
+                                    } else if (modelData.focused || workspaceHover.hovered) {
+                                        return root.backgroundAlt
+                                    } else {
+                                        return root.foreground
+                                    }
+                                }
+
+                                font {
+                                    family: defaultFont.family
+                                    pixelSize: defaultFont.pixelSize
+                                    bold: modelData.focused
+                                }
                             }
                         }
                     }
                 }
 
-                Item {
-                    Layout.fillWidth: true
-                }
+                Row {
+                    id: time
 
-                Text {
-                    Layout.maximumWidth: bar.width * 0.35
-                    text: Hyprland.activeToplevel ? Hyprland.activeToplevel.title : "Desktop"
-                    color: root.muted
-                    elide: Text.ElideRight
-                    horizontalAlignment: Text.AlignHCenter
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 12
-                }
+                    anchors {
+                        right: parent.right
+                        rightMargin: 20
+                    }
 
-                Item {
-                    Layout.fillWidth: true
-                }
+                    readonly property color defaultColor: root.foreground
+                    readonly property font font: Qt.font({
+                        family: root.defaultFont.family,
+                        pixelSize: root.defaultFont.pixelSize + 1,
+                        bold: false
+                    })
 
-                Rectangle {
-                    implicitWidth: clockLabel.implicitWidth + 20
-                    implicitHeight: 26
-                    radius: 6
-                    color: root.backgroundAlt
+                    Rectangle {
+                        implicitWidth: dateText.implicitWidth
+                        implicitHeight: bar.implicitHeight
+
+                        color: root.background
+
+                        Text {
+                            id: dateText
+
+                            anchors.centerIn: parent
+
+                            text: {
+                                let locale = Qt.locale("ja_JP")
+
+                                let now = systemClock.date;
+                                let dateStr = now.toLocaleDateString(locale, Locale.ShortFormat) // yyyy/mm/dd
+                                let dayOfWeek = now.toLocaleDateString(locale, "ddd"); // e.g. 水
+
+                                return `${dateStr} (${dayOfWeek})`
+                            }
+
+                            color: time.defaultColor
+                            font: time.font
+                        }
+                    }
 
                     Text {
-                        property var jpLocale: Qt.locale("ja_JP")
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: " | "
+                        color: time.defaultColor
+                        font: time.font
+                    }
 
-                        id: clockLabel
-                        anchors.centerIn: parent
-                        text: {
-                            let now = clock.date;
-                            let dateStr = now.toLocaleDateString(jpLocale, Locale.ShortFormat) // yyyy/mm/dd
-                            let dayOfWeek = now.toLocaleDateString(jpLocale, "ddd"); // e.g. 水
+                    Rectangle {
+                        implicitWidth: timeText.implicitWidth
+                        implicitHeight: bar.implicitHeight
 
-                            let time = Qt.formatDateTime(now, "HH:mm:ss")
+                        color: root.background
 
-                            return `${time}  ${dateStr} (${dayOfWeek})`;
+                        Text {
+                            id: timeText
+
+                            anchors.centerIn: parent
+
+                            text: Qt.formatDateTime(systemClock.date, "HH:mm:ss")
+
+                            font {
+                                family: time.font.family
+                                pixelSize: time.font.pixelSize
+                                bold: systemClock.hours < 5
+                            }
+
+                            color: font.bold ? root.red : root.foreground
                         }
-                        color: root.foreground
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.bold: true
-                        font.pixelSize: 15
                     }
                 }
             }
