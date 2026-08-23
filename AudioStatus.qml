@@ -109,6 +109,7 @@ Rectangle {
         spacing: 4
 
         Text {
+            id: glyph
             text: root.outputMuted ? "\uF026" : "\uF028"
             color: {
                 if (root.highlighted) {
@@ -116,7 +117,7 @@ Rectangle {
                 } else if (!root.sinkReady || root.outputMuted) {
                     return root.muted;
                 } else {
-                    return root.accent;
+                    return root.foreground;
                 }
             }
             font: root.defaultFont
@@ -126,15 +127,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.sinkReady
             text: `${Math.round(root.outputVolume * 100)}%`
-            color: {
-                if (root.highlighted) {
-                    return root.backgroundAlt;
-                } else if (!root.sinkReady || root.outputMuted) {
-                    return root.muted;
-                } else {
-                    return root.accent;
-                }
-            }
+            color: glyph.color
             font {
                 family: root.defaultFont.family
                 pixelSize: root.defaultFont.pixelSize - 3

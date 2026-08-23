@@ -116,6 +116,7 @@ Rectangle {
         spacing: 4
 
         Text {
+            id: glyph
             text: ""
             color: {
                 if (root.highlighted) {
@@ -135,7 +136,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.connectedCount > 0
             text: root.connectedCount
-            color: root.highlighted ? root.backgroundAlt : root.accent
+            color: glyph.color
             font {
                 family: root.defaultFont.family
                 pixelSize: root.defaultFont.pixelSize - 3
