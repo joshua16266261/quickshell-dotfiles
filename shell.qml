@@ -174,7 +174,14 @@ ShellRoot {
                                     audioStatus.closeMenu();
                                     bluetoothStatus.closeMenu();
                                     networkStatus.closeMenu();
-                                    modelData.activate();
+                                    const workspace = JSON.stringify(modelData.name);
+                                    Quickshell.execDetached([
+                                        "hyprctl",
+                                        "--batch",
+                                        `eval hl.animation({ leaf = "workspaces", enabled = false });
+                                        dispatch hl.dsp.focus({ workspace = ${workspace} });
+                                        eval hl.animation({ leaf = "workspaces", enabled = true, speed = 1.8, spring = "snappy", style = "slide" })`
+                                    ]);
                                 }
                             }
 
