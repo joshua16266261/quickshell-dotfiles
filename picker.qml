@@ -206,7 +206,7 @@ ShellRoot {
                     delegate: Rectangle {
                         id: thumb
 
-                        required property var modelData
+                        required property string filePath
                         required property int index
 
                         readonly property bool active: thumb.index === root.hoveredIndex
@@ -228,7 +228,7 @@ ShellRoot {
                         Image {
                             anchors.fill: parent
                             anchors.margins: 1
-                            source: root.imageUrl(thumb.modelData)
+                            source: root.imageUrl(thumb.filePath)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             sourceSize.width: 400
