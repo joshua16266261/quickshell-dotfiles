@@ -185,11 +185,7 @@ ShellRoot {
             Rectangle {
                 id: thumbBar
 
-                anchors {
-                    horizontalCenter: parent.horizontalCenter
-                    bottom: parent.bottom
-                    bottomMargin: 24
-                }
+                anchors.centerIn: parent
 
                 implicitWidth: Math.min(parent.width - 48, thumbList.contentWidth + 24)
                 implicitHeight: 150
