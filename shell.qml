@@ -66,6 +66,16 @@ ShellRoot {
         command: ["rofi", "-show", "drun"]
     }
 
+    Notifications {
+        defaultFont: root.defaultFont
+        background: root.background
+        backgroundAlt: root.backgroundAlt
+        foreground: root.foreground
+        muted: root.muted
+        accent: root.accent
+        red: root.red
+    }
+
     Variants {
         model: Quickshell.screens
 
