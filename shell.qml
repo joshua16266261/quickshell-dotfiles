@@ -52,8 +52,8 @@ ShellRoot {
     readonly property color red: root.themeColor(walColors.colors.color9, "#ff7a90")
 
     readonly property font defaultFont: Qt.font({
-        family: "JetBrainsMono NerdFont",
-        pixelSize: 16
+        family: "InconsolataGo NerdFont",
+        pixelSize: 18
     })
 
     SystemClock {
