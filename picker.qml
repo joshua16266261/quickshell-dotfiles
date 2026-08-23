@@ -10,6 +10,7 @@ ShellRoot {
     readonly property string homeDir: Quickshell.env("HOME")
     readonly property string wallpaperDir: `${root.homeDir}/dotfiles/wallpapers-dotfiles`
     readonly property string scriptPath: `${root.homeDir}/.local/bin/set-wallpaper`
+    readonly property string thumbCacheDir: `${root.wallpaperDir}/.cache/200x112`
     readonly property color background: pickerWal.special.background || "#111318"
     readonly property color foreground: pickerWal.special.foreground || "#e6e9ef"
     readonly property color accent: pickerWal.colors.color6 || "#62d6e8"
@@ -24,6 +25,15 @@ ShellRoot {
 
     function imageUrl(path) {
         return path === "" ? "" : "file://" + encodeURI(path);
+    }
+
+    function thumbUrl(path) {
+        if (path === "") {
+            return "";
+        }
+        const fileName = path.split("/").pop();
+        const base = fileName.replace(/\.[^.]+$/, "");
+        return "file://" + encodeURI(`${root.thumbCacheDir}/${base}.jpg`);
     }
 
     function candidateAt(index) {
@@ -103,6 +113,10 @@ ShellRoot {
         id: applyProcess
     }
 
+    Process {
+        id: thumbGenProcess
+    }
+
     Timer {
         id: previewDebounce
 
@@ -117,6 +131,11 @@ ShellRoot {
         nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.webp"]
         showDirs: false
         sortField: FolderListModel.Name
+    }
+
+    Component.onCompleted: {
+        thumbGenProcess.command = [`${root.homeDir}/dotfiles/scripts-dotfiles/generate-thumbs`];
+        thumbGenProcess.startDetached();
     }
 
     Variants {
@@ -152,7 +171,10 @@ ShellRoot {
                 source: root.imageUrl(root.previewedPath)
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
-                cache: false
+                cache: true
+                autoTransform: false
+                sourceSize.width: pickerWindow.width
+                sourceSize.height: pickerWindow.height
             }
 
             Rectangle {
@@ -201,6 +223,8 @@ ShellRoot {
                     orientation: ListView.Horizontal
                     spacing: 10
                     clip: true
+                    cacheBuffer: 800
+                    reuseItems: true
                     model: folderModel
 
                     delegate: Rectangle {
@@ -220,6 +244,7 @@ ShellRoot {
                         scale: active ? 1.04 : 1
 
                         Behavior on scale {
+                            enabled: thumb.active
                             NumberAnimation {
                                 duration: 100
                             }
@@ -228,11 +253,20 @@ ShellRoot {
                         Image {
                             anchors.fill: parent
                             anchors.margins: 1
-                            source: root.imageUrl(thumb.filePath)
+                            source: root.thumbUrl(thumb.filePath)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
-                            sourceSize.width: 400
-                            sourceSize.height: 224
+                            cache: true
+                            smooth: false
+                            mipmap: false
+                            autoTransform: false
+                            sourceSize.width: 200
+                            sourceSize.height: 112
+                            onStatusChanged: {
+                                if (status === Image.Error) {
+                                    source = root.imageUrl(thumb.filePath);
+                                }
+                            }
                         }
 
                         MouseArea {
