@@ -7,12 +7,49 @@ import QtQuick.Layouts
 ShellRoot {
     id: root
 
-    readonly property color background: "#ee111318"
-    readonly property color backgroundAlt: "#1a1d24"
-    readonly property color foreground: "#e6e9ef"
-    readonly property color muted: "#8b93a7"
-    readonly property color accent: "#62d6e8"
-    readonly property color red: "#ff7a90"
+    // Palette derived from the current wallpaper via pywal (~/.cache/wal/colors.json).
+    // Falls back to the static theme when the cache has not been generated yet.
+    function themeColor(value, fallback) {
+        if (value === undefined || value === null || value === "") {
+            return fallback;
+        }
+
+        return value.startsWith("#") ? value : `#${value}`;
+    }
+
+    FileView {
+        id: walColorsFile
+
+        path: `${Quickshell.env("HOME")}/.cache/wal/colors.json`
+        watchChanges: true
+        printErrors: false
+
+        JsonAdapter {
+            id: walColors
+
+            property JsonObject special: JsonObject {
+                property string background: ""
+                property string foreground: ""
+            }
+
+            property JsonObject colors: JsonObject {
+                property string color0: ""
+                property string color6: ""
+                property string color8: ""
+                property string color9: ""
+            }
+        }
+    }
+
+    readonly property color background: {
+        const wallBackground = walColors.special.background;
+        return wallBackground === "" ? "#ee111318" : `#ee${wallBackground.replace("#", "")}`;
+    }
+    readonly property color backgroundAlt: root.themeColor(walColors.colors.color0, "#1a1d24")
+    readonly property color foreground: root.themeColor(walColors.special.foreground, "#e6e9ef")
+    readonly property color muted: root.themeColor(walColors.colors.color8, "#8b93a7")
+    readonly property color accent: root.themeColor(walColors.colors.color6, "#62d6e8")
+    readonly property color red: root.themeColor(walColors.colors.color9, "#ff7a90")
 
     readonly property font defaultFont: Qt.font({
         family: "JetBrainsMono NerdFont",
