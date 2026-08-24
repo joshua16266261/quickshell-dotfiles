@@ -22,6 +22,11 @@ Rectangle {
     readonly property bool connected: activeVpn !== ""
     readonly property bool highlighted: indicatorHover.hovered || vpnMenu.visible || escapeHighlight
     property bool escapeHighlight: false
+    property bool connecting: false
+    property bool disconnecting: false
+    property string pendingConnectName: ""
+    property int connectDots: 1
+    readonly property string dotSuffix: "....".substring(0, connectDots)
 
     signal menuOpened
 
@@ -80,12 +85,23 @@ Rectangle {
         }
         vpnNames = names.sort((a, b) => a.localeCompare(b))
         activeVpn = active
+        if (root.connecting && active === root.pendingConnectName) {
+            root.connecting = false
+            root.pendingConnectName = ""
+        }
+        if (root.disconnecting && active === "") {
+            root.disconnecting = false
+        }
         console.log("VpnStatus parsed names=" + JSON.stringify(vpnNames) + " active=" + activeVpn)
     }
 
     function switchTo(name) {
         console.log("VpnStatus switchTo " + name + " active=" + activeVpn)
         if (name === activeVpn) return
+        root.connecting = true
+        root.disconnecting = false
+        root.pendingConnectName = name
+        root.connectDots = 1
         const nm = "/run/current-system/sw/bin/nmcli"
         if (activeVpn !== "" || root.vpnNames.length > 1) {
             const allDown = root.vpnNames.map(n => "\"" + n.replace(/\"/g, "\\\"") + "\"").join(" ")
@@ -100,7 +116,11 @@ Rectangle {
 
     function disconnectVpn() {
         console.log("VpnStatus disconnect " + activeVpn)
-        if (activeVpn === "") return
+        if (activeVpn === "" && !root.connecting) return
+        root.disconnecting = true
+        root.connecting = false
+        root.pendingConnectName = ""
+        root.connectDots = 1
         const nm = "/run/current-system/sw/bin/nmcli"
         const allDown = root.vpnNames.map(n => "\"" + n.replace(/\"/g, "\\\"") + "\"").join(" ")
         Quickshell.execDetached(["/run/current-system/sw/bin/bash", "-c", nm + " connection down " + allDown])
@@ -154,8 +174,19 @@ Rectangle {
                 running = false
                 count = 0
                 refreshTimer.interval = 4000
+                root.connecting = false
+                root.disconnecting = false
+                root.pendingConnectName = ""
             }
         }
+    }
+
+    Timer {
+        id: connectAnimTimer
+        interval: 350
+        repeat: true
+        running: root.connecting || root.disconnecting
+        onTriggered: root.connectDots = root.connectDots % 4 + 1
     }
 
     Component.onCompleted: {
@@ -338,8 +369,8 @@ Rectangle {
                                         font { family: root.defaultFont.family; pixelSize: root.defaultFont.pixelSize - 2; bold: vpnRow.isActive }
                                     }
                                     Text {
-                                        text: vpnRow.isActive ? "Connected" : "Not connected"
-                                        color: vpnRow.isActive ? root.accent : root.muted
+                                        text: (root.connecting && vpnRow.modelData === root.pendingConnectName) ? "Connecting" + root.dotSuffix : (root.disconnecting && vpnRow.isActive) ? "Disconnecting" + root.dotSuffix : vpnRow.isActive ? "Connected" : "Not connected"
+                                        color: ((root.connecting && vpnRow.modelData === root.pendingConnectName) || (root.disconnecting && vpnRow.isActive)) ? root.muted : vpnRow.isActive ? root.accent : root.muted
                                         font { family: root.defaultFont.family; pixelSize: root.defaultFont.pixelSize - 4 }
                                     }
                                 }
