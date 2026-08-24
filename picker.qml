@@ -8,7 +8,7 @@ ShellRoot {
     id: root
 
     readonly property string homeDir: Quickshell.env("HOME")
-    readonly property string wallpaperDir: `${root.homeDir}/dotfiles/wallpapers-dotfiles`
+    readonly property string wallpaperDir: `${root.homeDir}/dotfiles/wallpapers`
     readonly property string scriptPath: `${root.homeDir}/.local/bin/set-wallpaper`
     readonly property string thumbCacheDir: `${root.wallpaperDir}/.cache/200x112`
     readonly property color background: pickerWal.colors.surface || pickerWal.special.background || "#111318"
@@ -150,7 +150,7 @@ ShellRoot {
     }
 
     Component.onCompleted: {
-        thumbGenProcess.command = [`${root.homeDir}/dotfiles/scripts-dotfiles/generate-thumbs`];
+        thumbGenProcess.command = [`${root.homeDir}/dotfiles/wallpapers/generate-thumbs`];
         thumbGenProcess.startDetached();
     }
 
@@ -212,7 +212,7 @@ ShellRoot {
 
                     anchors.centerIn: parent
                     text: folderModel.count === 0
-                        ? "No wallpapers found in ~/dotfiles/wallpapers-dotfiles"
+                        ? "No wallpapers found in ~/dotfiles/wallpapers"
                         : "←/→ browse · click thumbnail or press Enter to apply · Esc cancels"
                     color: root.foreground
                     font.family: "JetBrainsMono Nerd Font"
