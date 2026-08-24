@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
@@ -16,6 +17,8 @@ Rectangle {
     required property color muted
     required property color accent
     required property color red
+    required property color secondary
+    required property color tertiary
 
     readonly property var wifiDevice: {
         for (const device of Networking.devices.values) {
@@ -59,10 +62,119 @@ Rectangle {
     property var contextAnchor: null
     property bool confirmForget: false
     property bool showConnectionDetails: false
+    readonly property string targetInterface: connectedDevice ? connectedDevice.name : ""
+    property real rxSpeed: 0
+    property real txSpeed: 0
+    property real menuRxSpeed: 0
+    property real menuTxSpeed: 0
+    property double _barPrevRx: 0
+    property double _barPrevTx: 0
+    property double _barPrevTs: 0
+    property double _menuPrevRx: 0
+    property double _menuPrevTx: 0
+    property double _menuPrevTs: 0
 
     signal menuOpened
 
-    implicitWidth: Math.max(32, networkIcon.implicitWidth + 16)
+    function formatSpeed(bps) {
+        const p = formatSpeedParts(bps);
+        return `${p.value} ${p.unit}`;
+    }
+
+    function formatSpeedParts(bps) {
+        const bits = bps * 8;
+        const units = ["b/s", "Kb/s", "Mb/s", "Gb/s"];
+        const divisors = [1, 1000, 1000000, 1000000000];
+        for (let i = 0; i < units.length; i++) {
+            const val = bits / divisors[i];
+            if (val >= 1000 && i < units.length - 1)
+                continue;
+            if (val >= 100) {
+                return { value: Math.round(val).toString(), unit: units[i] };
+            }
+            if (val >= 10) {
+                continue;
+            }
+            const v = (Math.round(val * 10) / 10).toFixed(1);
+            return { value: v, unit: units[i] };
+        }
+        const val = bits / divisors[divisors.length - 1];
+        if (val >= 100)
+            return { value: Math.round(val).toString(), unit: units[units.length - 1] };
+        return { value: (Math.round(val * 10) / 10).toFixed(1), unit: units[units.length - 1] };
+    }
+
+    function formatSpeedValue(bps) {
+        return formatSpeedParts(bps).value;
+    }
+
+    function formatSpeedUnit(bps) {
+        return formatSpeedParts(bps).unit;
+    }
+
+    function updateSpeeds() {
+        if (!targetInterface) {
+            rxSpeed = 0;
+            txSpeed = 0;
+            menuRxSpeed = 0;
+            menuTxSpeed = 0;
+            return;
+        }
+        const lines = netDevFile.text().split("\n");
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.indexOf(targetInterface + ":") !== -1) {
+                const parts = line.split(":")[1].trim().split(/\s+/);
+                const rx = parseInt(parts[0], 10);
+                const tx = parseInt(parts[8], 10);
+                const now = Date.now();
+                if (_barPrevTs !== 0) {
+                    const dt = (now - _barPrevTs) / 1000;
+                    if (dt >= 9) {
+                        rxSpeed = rx >= _barPrevRx ? (rx - _barPrevRx) / dt : 0;
+                        txSpeed = tx >= _barPrevTx ? (tx - _barPrevTx) / dt : 0;
+                        _barPrevRx = rx;
+                        _barPrevTx = tx;
+                        _barPrevTs = now;
+                    }
+                } else {
+                    _barPrevRx = rx;
+                    _barPrevTx = tx;
+                    _barPrevTs = now;
+                }
+                if (_menuPrevTs !== 0) {
+                    const dt2 = (now - _menuPrevTs) / 1000;
+                    if (dt2 > 0) {
+                        menuRxSpeed = rx >= _menuPrevRx ? (rx - _menuPrevRx) / dt2 : 0;
+                        menuTxSpeed = tx >= _menuPrevTx ? (tx - _menuPrevTx) / dt2 : 0;
+                    }
+                }
+                _menuPrevRx = rx;
+                _menuPrevTx = tx;
+                _menuPrevTs = now;
+                return;
+            }
+        }
+        rxSpeed = 0;
+        txSpeed = 0;
+        menuRxSpeed = 0;
+        menuTxSpeed = 0;
+    }
+
+    onTargetInterfaceChanged: {
+        _barPrevTs = 0;
+        _barPrevRx = 0;
+        _barPrevTx = 0;
+        _menuPrevTs = 0;
+        _menuPrevRx = 0;
+        _menuPrevTx = 0;
+        rxSpeed = 0;
+        txSpeed = 0;
+        menuRxSpeed = 0;
+        menuTxSpeed = 0;
+    }
+
+    implicitWidth: 200
     implicitHeight: barHeight
     color: background
 
@@ -73,6 +185,8 @@ Rectangle {
         }
         networkMenu.visible = false;
         menuFocusGrab.active = false;
+        speedTimer.interval = 10000;
+        speedTimer.restart();
     }
 
     function closeNetworkContextMenu() {
@@ -119,6 +233,12 @@ Rectangle {
         root.menuOpened();
         networkMenu.anchor.updateAnchor();
         networkMenu.visible = true;
+        root._menuPrevTs = 0;
+        root._menuPrevRx = 0;
+        root._menuPrevTx = 0;
+        speedTimer.interval = 1000;
+        speedTimer.restart();
+        netDevFile.reload();
         if (root.wifiDevice && Networking.wifiEnabled) {
             root.wifiDevice.scannerEnabled = true;
         }
@@ -135,6 +255,25 @@ Rectangle {
         interval: 100
         onTriggered: root.escapeHighlight = false
     }
+
+    FileView {
+        id: netDevFile
+
+        path: "/proc/net/dev"
+        printErrors: false
+        onTextChanged: root.updateSpeeds()
+    }
+
+    Timer {
+        id: speedTimer
+
+        interval: 10000
+        running: true
+        repeat: true
+        onTriggered: netDevFile.reload()
+    }
+
+    Component.onCompleted: netDevFile.reload()
 
     ScriptModel {
         id: savedNetworks
@@ -187,23 +326,129 @@ Rectangle {
         anchors.rightMargin: 3
     }
 
-    Text {
-        id: networkIcon
+    RowLayout {
+        id: indicatorRow
 
-        anchors.centerIn: parent
-        text: root.connectedDevice && root.connectedDevice.type === DeviceType.Wifi ? "" : "󰈀"
-        color: {
-            if (root.highlighted) {
-                return root.backgroundAlt;
-            } else if (root.connectionLimited) {
-                return root.red;
-            } else if (root.connected) {
-                return root.accent;
-            } else {
-                return root.muted;
+        anchors {
+            left: parent.left
+            right: parent.right
+            leftMargin: 8
+            rightMargin: 8
+            verticalCenter: parent.verticalCenter
+        }
+        spacing: 4
+
+        Text {
+            id: networkIcon
+
+            text: root.connectedDevice && root.connectedDevice.type === DeviceType.Wifi ? "" : "󰈀"
+            color: {
+                if (root.highlighted) {
+                    return root.backgroundAlt;
+                } else if (root.connectionLimited) {
+                    return root.red;
+                } else if (root.connected) {
+                    return root.accent;
+                } else {
+                    return root.muted;
+                }
+            }
+            font: root.defaultFont
+        }
+
+        Row {
+            visible: root.connected
+            spacing: 0
+
+            Text {
+                id: downloadText
+
+                width: 28
+                horizontalAlignment: Text.AlignRight
+                text: root.formatSpeedValue(root.rxSpeed)
+                color: root.tertiary
+                font {
+                    family: root.defaultFont.family
+                    pixelSize: root.defaultFont.pixelSize - 3
+                    bold: true
+                }
+            }
+
+            Item { width: 1; height: 1 }
+
+            Text {
+                width: 38
+                horizontalAlignment: Text.AlignRight
+                text: root.formatSpeedUnit(root.rxSpeed)
+                color: root.tertiary
+                font {
+                    family: root.defaultFont.family
+                    pixelSize: root.defaultFont.pixelSize - 3
+                    bold: true
+                }
+            }
+
+            Item { width: 8; height: 1 }
+
+            Text {
+                text: "↓"
+                color: root.tertiary
+                font {
+                    family: root.defaultFont.family
+                    pixelSize: root.defaultFont.pixelSize - 3
+                    bold: true
+                }
             }
         }
-        font: root.defaultFont
+
+        Item {
+            Layout.fillWidth: true
+        }
+
+        Row {
+            visible: root.connected
+            spacing: 0
+
+            Text {
+                id: uploadText
+
+                width: 28
+                horizontalAlignment: Text.AlignRight
+                text: root.formatSpeedValue(root.txSpeed)
+                color: root.secondary
+                font {
+                    family: root.defaultFont.family
+                    pixelSize: root.defaultFont.pixelSize - 3
+                    bold: true
+                }
+            }
+
+            Item { width: 1; height: 1 }
+
+            Text {
+                width: 38
+                horizontalAlignment: Text.AlignRight
+                text: root.formatSpeedUnit(root.txSpeed)
+                color: root.secondary
+                font {
+                    family: root.defaultFont.family
+                    pixelSize: root.defaultFont.pixelSize - 3
+                    bold: true
+                }
+            }
+
+            Item { width: 8; height: 1 }
+
+            Text {
+                text: "↑"
+                color: root.secondary
+                font {
+                    family: root.defaultFont.family
+                    pixelSize: root.defaultFont.pixelSize - 3
+                    bold: true
+                }
+            }
+        }
     }
 
     PopupWindow {
@@ -333,6 +578,117 @@ Rectangle {
                                     enabled: Networking.wifiHardwareEnabled
                                     onTapped: Networking.wifiEnabled = !Networking.wifiEnabled
                                 }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    visible: root.connected
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: visible ? 28 : 0
+                    radius: 6
+                    color: root.backgroundAlt
+
+                    RowLayout {
+                        anchors {
+                            fill: parent
+                            leftMargin: 8
+                            rightMargin: 8
+                        }
+                        spacing: 12
+
+                        Row {
+                            Layout.fillWidth: true
+                            spacing: 0
+
+                            Text {
+                                width: 28
+                                horizontalAlignment: Text.AlignRight
+                                text: root.formatSpeedValue(root.menuRxSpeed)
+                                color: root.tertiary
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 3
+                                    bold: true
+                                }
+                            }
+
+                            Item { width: 1; height: 1 }
+
+                            Text {
+                                width: 38
+                                horizontalAlignment: Text.AlignRight
+                                text: root.formatSpeedUnit(root.menuRxSpeed)
+                                color: root.tertiary
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 3
+                                    bold: true
+                                }
+                            }
+
+                            Item { width: 8; height: 1 }
+
+                            Text {
+                                text: "↓"
+                                color: root.tertiary
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 3
+                                    bold: true
+                                }
+                            }
+                        }
+
+                        Row {
+                            spacing: 0
+
+                            Text {
+                                width: 28
+                                horizontalAlignment: Text.AlignRight
+                                text: root.formatSpeedValue(root.menuTxSpeed)
+                                color: root.secondary
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 3
+                                    bold: true
+                                }
+                            }
+
+                            Item { width: 1; height: 1 }
+
+                            Text {
+                                width: 38
+                                horizontalAlignment: Text.AlignRight
+                                text: root.formatSpeedUnit(root.menuTxSpeed)
+                                color: root.secondary
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 3
+                                    bold: true
+                                }
+                            }
+
+                            Item { width: 8; height: 1 }
+
+                            Text {
+                                text: "↑"
+                                color: root.secondary
+                                font {
+                                    family: root.defaultFont.family
+                                    pixelSize: root.defaultFont.pixelSize - 3
+                                    bold: true
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: root.targetInterface
+                            color: root.muted
+                            font {
+                                family: root.defaultFont.family
+                                pixelSize: root.defaultFont.pixelSize - 4
                             }
                         }
                     }
