@@ -54,7 +54,6 @@ Rectangle {
     }
 
     function parseOutput(text) {
-        console.log("VpnStatus raw=" + JSON.stringify(text))
         const lines = text.trim().split("\n")
         let sep = lines.indexOf("__ACTIVE__")
         if (sep === -1) sep = lines.indexOf("__ACTIVE__\r")
@@ -85,14 +84,6 @@ Rectangle {
         }
         vpnNames = names.sort((a, b) => a.localeCompare(b))
         activeVpn = active
-        if (root.connecting && active === root.pendingConnectName) {
-            root.connecting = false
-            root.pendingConnectName = ""
-        }
-        if (root.disconnecting && active === "") {
-            root.disconnecting = false
-        }
-        console.log("VpnStatus parsed names=" + JSON.stringify(vpnNames) + " active=" + activeVpn)
     }
 
     function switchTo(name) {
