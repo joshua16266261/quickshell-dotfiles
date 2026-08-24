@@ -9,7 +9,7 @@ ShellRoot {
 
     readonly property string homeDir: Quickshell.env("HOME")
     readonly property string wallpaperDir: `${root.homeDir}/dotfiles/wallpapers`
-    readonly property string scriptPath: `${root.homeDir}/.local/bin/set-wallpaper`
+    readonly property string scriptPath: `${root.homeDir}/dotfiles/wallpapers/set-wallpaper`
     readonly property string thumbCacheDir: `${root.wallpaperDir}/.cache/200x112`
     readonly property color background: pickerWal.colors.surface || pickerWal.special.background || "#111318"
     readonly property color foreground: pickerWal.colors.on_surface || pickerWal.special.foreground || "#e6e9ef"
