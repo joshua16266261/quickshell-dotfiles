@@ -11,13 +11,14 @@ ShellRoot {
     readonly property string wallpaperDir: `${root.homeDir}/dotfiles/wallpapers-dotfiles`
     readonly property string scriptPath: `${root.homeDir}/.local/bin/set-wallpaper`
     readonly property string thumbCacheDir: `${root.wallpaperDir}/.cache/200x112`
-    readonly property color background: pickerWal.special.background || "#111318"
-    readonly property color foreground: pickerWal.special.foreground || "#e6e9ef"
-    readonly property color accent: pickerWal.colors.color6 || "#62d6e8"
+    readonly property color background: pickerWal.colors.surface || pickerWal.special.background || "#111318"
+    readonly property color foreground: pickerWal.colors.on_surface || pickerWal.special.foreground || "#e6e9ef"
+    readonly property color accent: pickerWal.colors.primary || pickerWal.colors.color6 || "#62d6e8"
 
     property string originalWallpaper: ""
     property int hoveredIndex: 0
     property string previewedPath: ""
+    property string lastWalPath: ""
 
     function withAlpha(color, alpha) {
         return `#${alpha}${color.toString().replace("#", "")}`;
@@ -46,19 +47,27 @@ ShellRoot {
         return folderModel.get(root.hoveredIndex, "filePath") ?? "";
     }
 
-    function requestPreview() {
+    function syncPreview() {
         const path = root.candidateAt(root.hoveredIndex);
         if (path === "" || path === root.previewedPath) {
             return;
         }
 
         root.previewedPath = path;
-        Qt.callLater(() => root.runSetWallpaper(["--preview", path]));
+    }
+
+    function requestWalPreview() {
+        const path = root.candidateAt(root.hoveredIndex);
+        if (path === "" || path === root.lastWalPath) {
+            return;
+        }
+
+        root.lastWalPath = path;
+        root.runSetWallpaper(["--preview", path]);
     }
 
     function runSetWallpaper(args) {
-        applyProcess.command = [root.scriptPath, ...args];
-        applyProcess.startDetached();
+        Quickshell.execDetached([root.scriptPath, ...args]);
     }
 
     function confirmSelection() {
@@ -79,7 +88,7 @@ ShellRoot {
     FileView {
         id: stateFile
 
-        path: `${root.homeDir}/.local/state/wallpaper/current`
+        path: `${root.homeDir}/dotfiles/matugen-dotfiles/state/current`
         printErrors: false
 
         onLoaded: {
@@ -87,13 +96,17 @@ ShellRoot {
             if (root.previewedPath === "") {
                 root.previewedPath = root.originalWallpaper;
             }
+            if (root.lastWalPath === "") {
+                root.lastWalPath = root.originalWallpaper;
+            }
         }
     }
 
     FileView {
-        path: `${root.homeDir}/.cache/wal/colors.json`
+        path: `${root.homeDir}/dotfiles/matugen-dotfiles/output/material.json`
         watchChanges: true
         printErrors: false
+        onFileChanged: reload()
 
         JsonAdapter {
             id: pickerWal
@@ -104,7 +117,10 @@ ShellRoot {
             }
 
             property JsonObject colors: JsonObject {
+                property string primary: ""
                 property string color6: ""
+                property string surface: ""
+                property string on_surface: ""
             }
         }
     }
@@ -118,10 +134,10 @@ ShellRoot {
     }
 
     Timer {
-        id: previewDebounce
+        id: walDebounce
 
-        interval: 250
-        onTriggered: root.requestPreview()
+        interval: 60
+        onTriggered: root.requestWalPreview()
     }
 
     FolderListModel {
@@ -276,16 +292,16 @@ ShellRoot {
 
                             onEntered: {
                                 root.hoveredIndex = thumb.index;
-                                previewDebounce.restart();
+                                root.syncPreview();
+                                walDebounce.restart();
                             }
                             onClicked: {
                                 if (root.hoveredIndex === thumb.index && root.previewedPath !== "") {
                                     root.confirmSelection();
                                 } else {
                                     root.hoveredIndex = thumb.index;
-                                    previewDebounce.interval = 0;
-                                    previewDebounce.restart();
-                                    previewDebounce.interval = 250;
+                                    root.syncPreview();
+                                    root.requestWalPreview();
                                 }
                             }
                         }
@@ -316,7 +332,8 @@ ShellRoot {
                 context: Qt.ApplicationShortcut
                 onActivated: {
                     root.hoveredIndex = Math.max(0, root.hoveredIndex - 1);
-                    previewDebounce.restart();
+                    root.syncPreview();
+                    walDebounce.restart();
                 }
             }
 
@@ -324,8 +341,9 @@ ShellRoot {
                 sequence: "Right"
                 context: Qt.ApplicationShortcut
                 onActivated: {
-                    root.hoveredIndex += 1;
-                    previewDebounce.restart();
+                    root.hoveredIndex = Math.min(folderModel.count - 1, root.hoveredIndex + 1);
+                    root.syncPreview();
+                    walDebounce.restart();
                 }
             }
         }
