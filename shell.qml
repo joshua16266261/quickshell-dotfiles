@@ -1,8 +1,6 @@
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
-import QtQuick.Layouts
 
 ShellRoot {
     id: root
@@ -67,16 +65,6 @@ ShellRoot {
         pixelSize: 18
     })
 
-    SystemClock {
-        id: systemClock
-        precision: SystemClock.Seconds
-    }
-
-    Process {
-        id: launcher
-        command: ["rofi", "-show", "drun"]
-    }
-
     Notifications {
         defaultFont: root.defaultFont
         background: root.background
@@ -120,210 +108,108 @@ ShellRoot {
                     }
                 }
 
-                Rectangle {
+                ///////////////////////
+                //// Left -> Right ////
+                ///////////////////////
+                Rofi {
                     id: rofi
 
-                    anchors.left: parent.left
-
-                    implicitWidth: rofiLabel.implicitWidth + 1.25 * rofiLabel.font.pixelSize
-                    implicitHeight: bar.implicitHeight
-
-                    color: root.background
-
-                    HoverHandler {
-                        id: rofiHover
+                    anchors {
+                        left: parent.left
+                        verticalCenter: parent.verticalCenter
                     }
 
-                    TapHandler {
-                        onTapped: {
-                            audioStatus.closeMenu();
-                            bluetoothStatus.closeMenu();
-                            vpnStatus.closeMenu();
-                            networkStatus.closeMenu();
-                            launcher.startDetached();
-                        }
-                    }
+                    barHeight: bar.implicitHeight
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    accent: root.accent
 
-                    InnerBackground {
-                        color: rofiHover.hovered ? root.accent : root.backgroundAlt
-                        anchors.leftMargin: 5
-                        anchors.rightMargin: 5
-                    }
-
-                    Text {
-                        id: rofiLabel
-
-                        anchors {
-                            centerIn: parent
-                            verticalCenter: parent.verticalCenter
-                        }
-
-                        text: "Rofi"
-
-                        color: rofiHover.hovered ? root.backgroundAlt : root.accent
-
-                        font {
-                            family: defaultFont.family
-                            pixelSize: defaultFont.pixelSize
-                            bold: true
-                        }
+                    onTapped: {
+                        audioStatus.closeMenu();
+                        bluetoothStatus.closeMenu();
+                        vpnStatus.closeMenu();
+                        networkStatus.closeMenu();
                     }
                 }
 
-                Row {
+                Workspaces {
                     id: workspaces
 
-                    anchors.centerIn: parent
-                    spacing: 5
+                    anchors {
+                        left: rofi.right
+                        leftMargin: 5
+                        verticalCenter: parent.verticalCenter
+                    }
 
-                    Repeater {
-                        model: Hyprland.workspaces
+                    barHeight: bar.implicitHeight
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    foreground: root.foreground
+                    accent: root.accent
+                    muted: root.muted
+                    red: root.red
 
-                        Rectangle {
-                            required property var modelData
-
-                            implicitWidth: Math.max(24, workspaceLabel.implicitWidth + 1.25 * workspaceLabel.font.pixelSize)
-                            implicitHeight: bar.implicitHeight
-                            radius: 6
-
-                            color: root.background
-
-                            HoverHandler {
-                                id: workspaceHover
-                            }
-
-                            TapHandler {
-                                onTapped: {
-                                    audioStatus.closeMenu();
-                                    bluetoothStatus.closeMenu();
-                                    vpnStatus.closeMenu();
-                                    networkStatus.closeMenu();
-                                    const workspace = JSON.stringify(modelData.name);
-                                    Quickshell.execDetached([
-                                        "hyprctl",
-                                        "--batch",
-                                        `eval hl.animation({ leaf = "workspaces", enabled = false });
-                                        dispatch hl.dsp.focus({ workspace = ${workspace} });
-                                        eval hl.animation({ leaf = "workspaces", enabled = true, speed = 1.8, spring = "snappy", style = "slide" })`
-                                    ]);
-                                }
-                            }
-
-                            InnerBackground {
-                                color: {
-                                    if (modelData.focused) {
-                                        return root.accent
-                                    } else if (workspaceHover.hovered) {
-                                        return root.muted
-                                    } else {
-                                        return root.background
-                                    }
-                                }
-                            }
-
-                            Text {
-                                id: workspaceLabel
-
-                                anchors.centerIn: parent
-
-                                text: modelData.name
-                                color: {
-                                    if (modelData.urgent) {
-                                        return root.red
-                                    } else if (modelData.focused || workspaceHover.hovered) {
-                                        return root.backgroundAlt
-                                    } else {
-                                        return root.foreground
-                                    }
-                                }
-
-                                font {
-                                    family: defaultFont.family
-                                    pixelSize: defaultFont.pixelSize
-                                    bold: modelData.focused
-                                }
-                            }
-                        }
+                    onTapped: {
+                        audioStatus.closeMenu();
+                        bluetoothStatus.closeMenu();
+                        vpnStatus.closeMenu();
+                        networkStatus.closeMenu();
                     }
                 }
 
-                Row {
+                ///////////////////////
+                //// Right -> Left ////
+                ///////////////////////
+                Time {
                     id: time
 
                     anchors {
                         right: parent.right
-                        rightMargin: 20
+                        verticalCenter: parent.verticalCenter
                     }
 
-                    readonly property color defaultColor: root.foreground
-                    readonly property font font: Qt.font({
-                        family: root.defaultFont.family,
-                        pixelSize: root.defaultFont.pixelSize + 1,
-                        bold: false
-                    })
+                    barHeight: bar.implicitHeight
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    foreground: root.foreground
+                    red: root.red
+                }
 
-                    Rectangle {
-                        implicitWidth: dateText.implicitWidth
-                        implicitHeight: bar.implicitHeight
+                NetworkStatus {
+                    id: networkStatus
 
-                        color: root.background
-
-                        Text {
-                            id: dateText
-
-                            anchors.centerIn: parent
-
-                            text: {
-                                let locale = Qt.locale("ja_JP")
-
-                                let now = systemClock.date;
-                                let dateStr = now.toLocaleDateString(locale, Locale.ShortFormat) // yyyy/mm/dd
-                                let dayOfWeek = now.toLocaleDateString(locale, "ddd"); // e.g. 水
-
-                                return `${dateStr} (${dayOfWeek})`
-                            }
-
-                            color: time.defaultColor
-                            font: time.font
-                        }
+                    anchors {
+                        right: time.left
+                        rightMargin: 10
+                        verticalCenter: parent.verticalCenter
                     }
 
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: " | "
-                        color: time.defaultColor
-                        font: time.font
-                    }
+                    barHeight: bar.implicitHeight
+                    barWindow: bar
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    foreground: root.foreground
+                    muted: root.muted
+                    accent: root.accent
+                    red: root.red
+                    secondary: root.secondary
+                    tertiary: root.tertiary
 
-                    Rectangle {
-                        implicitWidth: timeText.implicitWidth
-                        implicitHeight: bar.implicitHeight
-
-                        color: root.background
-
-                        Text {
-                            id: timeText
-
-                            anchors.centerIn: parent
-
-                            text: Qt.formatDateTime(systemClock.date, "HH:mm:ss")
-
-                            font {
-                                family: time.font.family
-                                pixelSize: time.font.pixelSize
-                                bold: systemClock.hours < 5
-                            }
-
-                            color: font.bold ? root.red : root.foreground
-                        }
+                    onMenuOpened: {
+                        audioStatus.closeMenu();
+                        bluetoothStatus.closeMenu();
+                        vpnStatus.closeMenu();
                     }
                 }
 
-                AudioStatus {
-                    id: audioStatus
+                VpnStatus {
+                    id: vpnStatus
 
                     anchors {
-                        right: bluetoothStatus.left
+                        right: networkStatus.left
                         rightMargin: 2
                         verticalCenter: parent.verticalCenter
                     }
@@ -339,8 +225,8 @@ ShellRoot {
                     red: root.red
 
                     onMenuOpened: {
+                        audioStatus.closeMenu();
                         bluetoothStatus.closeMenu();
-                        vpnStatus.closeMenu();
                         networkStatus.closeMenu();
                     }
                 }
@@ -371,11 +257,11 @@ ShellRoot {
                     }
                 }
 
-                VpnStatus {
-                    id: vpnStatus
+                AudioStatus {
+                    id: audioStatus
 
                     anchors {
-                        right: networkStatus.left
+                        right: bluetoothStatus.left
                         rightMargin: 2
                         verticalCenter: parent.verticalCenter
                     }
@@ -391,37 +277,9 @@ ShellRoot {
                     red: root.red
 
                     onMenuOpened: {
-                        audioStatus.closeMenu();
-                        bluetoothStatus.closeMenu();
-                        networkStatus.closeMenu();
-                    }
-                }
-
-                NetworkStatus {
-                    id: networkStatus
-
-                    anchors {
-                        right: time.left
-                        rightMargin: 10
-                        verticalCenter: parent.verticalCenter
-                    }
-
-                    barHeight: bar.implicitHeight
-                    barWindow: bar
-                    defaultFont: root.defaultFont
-                    background: root.background
-                    backgroundAlt: root.backgroundAlt
-                    foreground: root.foreground
-                    muted: root.muted
-                    accent: root.accent
-                    red: root.red
-                    secondary: root.secondary
-                    tertiary: root.tertiary
-
-                    onMenuOpened: {
-                        audioStatus.closeMenu();
                         bluetoothStatus.closeMenu();
                         vpnStatus.closeMenu();
+                        networkStatus.closeMenu();
                     }
                 }
             }

@@ -226,7 +226,7 @@ Rectangle {
             elide: Text.ElideRight
             font {
                 family: root.defaultFont.family
-                pixelSize: root.defaultFont.pixelSize - 4
+                pixelSize: root.defaultFont.pixelSize - 2
                 bold: true
             }
         }

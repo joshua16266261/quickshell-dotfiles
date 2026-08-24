@@ -356,6 +356,12 @@ Rectangle {
             font: root.defaultFont
         }
 
+        readonly property font font: Qt.font({
+            family: defaultFont.family,
+            pixelSize: defaultFont.pixelSize - 2,
+            bold: true
+        })
+
         Row {
             visible: root.connected
             spacing: 0
@@ -367,37 +373,23 @@ Rectangle {
                 horizontalAlignment: Text.AlignRight
                 text: root.formatSpeedValue(root.rxSpeed)
                 color: root.tertiary
-                font {
-                    family: root.defaultFont.family
-                    pixelSize: root.defaultFont.pixelSize - 3
-                    bold: true
-                }
+                font: indicatorRow.font
             }
-
-            Item { width: 1; height: 1 }
 
             Text {
                 width: 38
                 horizontalAlignment: Text.AlignRight
                 text: root.formatSpeedUnit(root.rxSpeed)
                 color: root.tertiary
-                font {
-                    family: root.defaultFont.family
-                    pixelSize: root.defaultFont.pixelSize - 3
-                    bold: true
-                }
+                font: indicatorRow.font
             }
 
-            Item { width: 8; height: 1 }
+            Item { width: 6; height: 1 }
 
             Text {
                 text: "↓"
                 color: root.tertiary
-                font {
-                    family: root.defaultFont.family
-                    pixelSize: root.defaultFont.pixelSize - 3
-                    bold: true
-                }
+                font: indicatorRow.font
             }
         }
 
@@ -416,37 +408,23 @@ Rectangle {
                 horizontalAlignment: Text.AlignRight
                 text: root.formatSpeedValue(root.txSpeed)
                 color: root.secondary
-                font {
-                    family: root.defaultFont.family
-                    pixelSize: root.defaultFont.pixelSize - 3
-                    bold: true
-                }
+                font: indicatorRow.font
             }
-
-            Item { width: 1; height: 1 }
 
             Text {
                 width: 38
                 horizontalAlignment: Text.AlignRight
                 text: root.formatSpeedUnit(root.txSpeed)
                 color: root.secondary
-                font {
-                    family: root.defaultFont.family
-                    pixelSize: root.defaultFont.pixelSize - 3
-                    bold: true
-                }
+                font: indicatorRow.font
             }
 
-            Item { width: 8; height: 1 }
+            Item { width: 6; height: 1 }
 
             Text {
                 text: "↑"
                 color: root.secondary
-                font {
-                    family: root.defaultFont.family
-                    pixelSize: root.defaultFont.pixelSize - 3
-                    bold: true
-                }
+                font: indicatorRow.font
             }
         }
     }

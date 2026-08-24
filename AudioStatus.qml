@@ -130,7 +130,7 @@ Rectangle {
             color: glyph.color
             font {
                 family: root.defaultFont.family
-                pixelSize: root.defaultFont.pixelSize - 3
+                pixelSize: root.defaultFont.pixelSize - 2
                 bold: true
             }
         }
