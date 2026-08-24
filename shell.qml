@@ -115,6 +115,7 @@ ShellRoot {
                     onClicked: {
                         audioStatus.closeMenu();
                         bluetoothStatus.closeMenu();
+                        vpnStatus.closeMenu();
                         networkStatus.closeMenu();
                     }
                 }
@@ -137,6 +138,7 @@ ShellRoot {
                         onTapped: {
                             audioStatus.closeMenu();
                             bluetoothStatus.closeMenu();
+                            vpnStatus.closeMenu();
                             networkStatus.closeMenu();
                             launcher.startDetached();
                         }
@@ -194,6 +196,7 @@ ShellRoot {
                                 onTapped: {
                                     audioStatus.closeMenu();
                                     bluetoothStatus.closeMenu();
+                                    vpnStatus.closeMenu();
                                     networkStatus.closeMenu();
                                     const workspace = JSON.stringify(modelData.name);
                                     Quickshell.execDetached([
@@ -337,12 +340,39 @@ ShellRoot {
 
                     onMenuOpened: {
                         bluetoothStatus.closeMenu();
+                        vpnStatus.closeMenu();
                         networkStatus.closeMenu();
                     }
                 }
 
                 BluetoothStatus {
                     id: bluetoothStatus
+
+                    anchors {
+                        right: vpnStatus.left
+                        rightMargin: 2
+                        verticalCenter: parent.verticalCenter
+                    }
+
+                    barHeight: bar.implicitHeight
+                    barWindow: bar
+                    defaultFont: root.defaultFont
+                    background: root.background
+                    backgroundAlt: root.backgroundAlt
+                    foreground: root.foreground
+                    muted: root.muted
+                    accent: root.accent
+                    red: root.red
+
+                    onMenuOpened: {
+                        audioStatus.closeMenu();
+                        vpnStatus.closeMenu();
+                        networkStatus.closeMenu();
+                    }
+                }
+
+                VpnStatus {
+                    id: vpnStatus
 
                     anchors {
                         right: networkStatus.left
@@ -362,6 +392,7 @@ ShellRoot {
 
                     onMenuOpened: {
                         audioStatus.closeMenu();
+                        bluetoothStatus.closeMenu();
                         networkStatus.closeMenu();
                     }
                 }
@@ -390,6 +421,7 @@ ShellRoot {
                     onMenuOpened: {
                         audioStatus.closeMenu();
                         bluetoothStatus.closeMenu();
+                        vpnStatus.closeMenu();
                     }
                 }
             }
