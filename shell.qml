@@ -49,8 +49,9 @@ ShellRoot {
     readonly property color background: {
         const v = walColors.colors.surface || walColors.special.background;
         if (v === "") return "#ee111318";
-        const c = v.replace("#", "");
-        return c.length === 8 ? `#${c}` : `#ee${c}`;
+        var c = v.replace("#", "");
+        c.length === 8 ? `#${c}` : `#ee${c}`;
+        return Qt.rgba(c.r, c.g, c.b, 0.5);
     }
     readonly property color backgroundAlt: root.themeColor(walColors.colors.surface_container || walColors.colors.background, "#1a1d24")
     readonly property color foreground: root.themeColor(walColors.colors.on_surface || walColors.special.foreground, "#e6e9ef")
