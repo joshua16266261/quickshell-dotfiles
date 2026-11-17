@@ -8,7 +8,7 @@ Rectangle {
 
     required property var notification
     required property font defaultFont
-    required property color background
+    required property color background_opaque
     required property color backgroundAlt
     required property color foreground
     required property color muted
@@ -25,7 +25,7 @@ Rectangle {
     implicitWidth: 380
     implicitHeight: cardContent.implicitHeight + 24
     radius: 10
-    color: root.background
+    color: root.background_opaque
 
     border {
         width: 1

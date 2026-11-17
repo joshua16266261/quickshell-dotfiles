@@ -12,6 +12,7 @@ Rectangle {
     required property var barWindow
     required property font defaultFont
     required property color background
+    required property color background_opaque
     required property color backgroundAlt
     required property color foreground
     required property color muted
@@ -456,7 +457,7 @@ Rectangle {
 
         Rectangle {
             anchors.fill: parent
-            color: root.background
+            color: root.background_opaque
             radius: 8
             border.width: 1
             border.color: root.backgroundAlt
@@ -928,7 +929,7 @@ Rectangle {
         Rectangle {
             anchors.fill: parent
             radius: 7
-            color: root.background
+            color: root.background_opaque
             border.width: 1
             border.color: root.backgroundAlt
 

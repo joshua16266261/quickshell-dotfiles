@@ -105,6 +105,7 @@ ShellRoot {
         c.length === 8 ? `#${c}` : `#ee${c}`;
         return Qt.rgba(c.r, c.g, c.b, 0.5);
     }
+    readonly property color background_opaque: Qt.rgba(root.background.r, root.background.g, root.background.b, 1)
     readonly property color backgroundAlt: root.themeColor(walColors.colors.surface_container || walColors.colors.background, "#1a1d24")
     readonly property color foreground: root.themeColor(walColors.colors.on_surface || walColors.special.foreground, "#e6e9ef")
     readonly property color muted: root.themeColor(walColors.colors.outline, "#8b93a7")
@@ -120,7 +121,7 @@ ShellRoot {
 
     Notifications {
         defaultFont: root.defaultFont
-        background: root.background
+        background_opaque: root.background_opaque
         backgroundAlt: root.backgroundAlt
         foreground: root.foreground
         muted: root.muted
@@ -230,6 +231,7 @@ ShellRoot {
                     barWindow: bar
                     defaultFont: root.defaultFont
                     background: root.background
+                    background_opaque: root.background_opaque
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
@@ -259,6 +261,7 @@ ShellRoot {
                     barWindow: bar
                     defaultFont: root.defaultFont
                     background: root.background
+                    background_opaque: root.background_opaque
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
@@ -288,6 +291,7 @@ ShellRoot {
                     barWindow: bar
                     defaultFont: root.defaultFont
                     background: root.background
+                    background_opaque: root.background_opaque
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
@@ -315,6 +319,7 @@ ShellRoot {
                     barWindow: bar
                     defaultFont: root.defaultFont
                     background: root.background
+                    background_opaque: root.background_opaque
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
@@ -342,6 +347,7 @@ ShellRoot {
                     barWindow: bar
                     defaultFont: root.defaultFont
                     background: root.background
+                    background_opaque: root.background_opaque
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted

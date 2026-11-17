@@ -6,7 +6,7 @@ Item {
     id: root
 
     required property font defaultFont
-    required property color background
+    required property color background_opaque
     required property color backgroundAlt
     required property color foreground
     required property color muted
@@ -78,7 +78,7 @@ Item {
                     notification: modelData
 
                     defaultFont: root.defaultFont
-                    background: root.background
+                    background_opaque: root.background_opaque
                     backgroundAlt: root.backgroundAlt
                     foreground: root.foreground
                     muted: root.muted
